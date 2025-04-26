@@ -1,30 +1,45 @@
-import argparse, os, sys, time, requests, json
-MODEL="meta-llama/llama-4-maverick:free"
-ENDPOINT="https://openrouter.ai/v1/chat/completions"
-def build_prompt(args):
-    return f"Write five fundraising emails and four social captions for the {args.event} on {args.date} in a {args.tone} tone."
-def chat_completion(prompt):
-    key=os.getenv("OPENROUTER_API_KEY")
-    if not key:
-        sys.exit("missing OPENROUTER_API_KEY")
-    payload={"model":MODEL,"messages":[{"role":"user","content":prompt}]}
-    t0=time.time()
-    r=requests.post(ENDPOINT,headers={"Authorization":f"Bearer {key}","Content-Type":"application/json"},json=payload,timeout=60)
-    dt=time.time()-t0
-    if r.status_code!=200:
-        sys.exit(f"HTTP {r.status_code}: {r.text[:120]}")
-    print(f"done in {dt:.2f}s",file=sys.stderr)
-    return r.json()["choices"][0]["message"]["content"]
+import os
+import argparse
+import openai
+
+def generate_copy(event, date):
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        raise ValueError("Missing OpenRouter API Key!")
+
+    prompt = f"""You are a nonprofit marketing expert.
+Generate a 5-email drip sequence plus 4 social media captions for an event called '{event}' happening on {date}.
+Emails should build excitement and encourage donations.
+Captions should be short, energetic, and suitable for Instagram and Facebook."""
+
+    client = openai.OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=api_key
+    )
+
+    response = client.chat.completions.create(
+        model="meta-llama/llama-3-70b-instruct",
+        messages=[
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    return response.choices[0].message.content
+
 def main():
-    p=argparse.ArgumentParser()
-    p.add_argument("--event",default="Community Gala"); p.add_argument("--date",default="TBD"); p.add_argument("--tone",default="upbeat"); p.add_argument("--dry-run",action="store_true")
-    a=p.parse_args()
-    prompt=build_prompt(a)
-    if a.dry_run:
-        print(prompt); return
-    out=chat_completion(prompt)
-    os.makedirs("out",exist_ok=True)
-    with open("out/campaign.md","w") as f: f.write(out)
-    print(out)
-if __name__=="__main__":
+    parser = argparse.ArgumentParser(description="Generate Nyla fundraiser copy")
+    parser.add_argument("--event", required=True, help="Name of the event")
+    parser.add_argument("--date", required=True, help="Date of the event")
+
+    args = parser.parse_args()
+
+    try:
+        copy = generate_copy(args.event, args.date)
+        print("\n🎯 Generated Copy:\n")
+        print(copy)
+    except Exception as e:
+        print(f"Error: {e}")
+
+if __name__ == "__main__":
     main()
+
