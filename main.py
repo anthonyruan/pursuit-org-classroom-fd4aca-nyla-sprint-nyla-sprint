@@ -8,6 +8,9 @@ def chat_completion(prompt):
     if not key:
         sys.exit("missing OPENROUTER_API_KEY")
     payload={"model":MODEL,"messages":[{"role":"user","content":prompt}]}
+    
+    print(f"🚀 Sending payload:\n{json.dumps(payload, indent=2)}")
+    
     t0=time.time()
     r=requests.post(ENDPOINT,headers={"Authorization":f"Bearer {key}","Content-Type":"application/json"},json=payload,timeout=60)
     dt=time.time()-t0
